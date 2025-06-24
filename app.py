@@ -1,15 +1,16 @@
 import streamlit as st
 import os
 import json
-from serpapi import GoogleSearch
+from dotenv import load_dotenv
 from typing import TypedDict, List
+from serpapi import GoogleSearch
 from langgraph.graph import StateGraph, END
 from langchain_community.llms import HuggingFaceEndpoint
-from dotenv import load_dotenv
+
+# Load environment variables
 load_dotenv()
 
-
-# Define LangGraph State
+# LangGraph State Definition
 class GraphState(TypedDict):
     input: str
     action: str
@@ -18,15 +19,14 @@ class GraphState(TypedDict):
     max_retries: int
     valid: bool
 
-# Initialize LLM
-
+# Initialize Hugging Face LLM
 llm = HuggingFaceEndpoint(
-    repo_id="google/flan-t5-small",  
-    huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN")
+    repo_id="mistralai/Mistral-7B-Instruct-v0.2",  # Change to your model if needed
+    huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+    temperature=0.7
 )
 
-
-# Classify user intent
+# Node: Classify the intent
 def classify_query(state: GraphState) -> GraphState:
     query = state["input"]
     return {
@@ -38,11 +38,10 @@ def classify_query(state: GraphState) -> GraphState:
         "valid": False
     }
 
-# Search Node
+# Node: Search tool using SerpAPI
 def search_tool(state: GraphState) -> GraphState:
-    query = state["input"]
     search = GoogleSearch({
-        "q": query,
+        "q": state["input"],
         "api_key": os.getenv("SERP_API_KEY"),
         "num": 3
     })
@@ -64,7 +63,7 @@ def search_tool(state: GraphState) -> GraphState:
         "valid": True
     }
 
-# LLM Response Generator
+# Node: Generate answer using HuggingFace LLM
 def answer_tool(state: GraphState) -> GraphState:
     response = llm.invoke(state["input"])
     return {
@@ -72,7 +71,7 @@ def answer_tool(state: GraphState) -> GraphState:
         "output": response
     }
 
-# Check output quality
+# Node: Validate LLM output and retry if too short
 def validate_output(state: GraphState) -> GraphState:
     if len(state["output"]) < 15 and state["retry_count"] < state["max_retries"]:
         return {
@@ -85,7 +84,7 @@ def validate_output(state: GraphState) -> GraphState:
         "valid": True
     }
 
-# LangGraph Definition
+# Build LangGraph
 graph = StateGraph(GraphState)
 graph.add_node("classify", classify_query)
 graph.add_node("search", search_tool)
@@ -93,13 +92,11 @@ graph.add_node("answer", answer_tool)
 graph.add_node("validate", validate_output)
 
 graph.set_entry_point("classify")
-
 graph.add_conditional_edges("classify", lambda s: s["action"], {
     "search": "search",
     "answer": "answer"
 })
 graph.add_edge("search", END)
-
 graph.add_edge("answer", "validate")
 graph.add_conditional_edges("validate", lambda s: s["valid"], {
     True: END,
@@ -109,14 +106,12 @@ graph.add_conditional_edges("validate", lambda s: s["valid"], {
 app_graph = graph.compile()
 
 # Streamlit UI
-st.set_page_config(page_title="LangGraph Assistant", layout="centered")
+st.set_page_config(page_title="Aarambh GPT", layout="centered")
 st.title("Aarambh GPT")
 
-# Chat memory initialization
 if "chat_history" not in st.session_state:
     st.session_state.chat_history: List[dict] = []
 
-# Input + Button
 user_input = st.text_input("Bring it on")
 
 if st.button("Send") and user_input.strip() != "":
@@ -134,18 +129,17 @@ if st.button("Send") and user_input.strip() != "":
             "bot": result["output"]
         })
 
-# Utility Buttons
+# Chat utility buttons
 col1, col2 = st.columns(2)
 with col1:
     if st.button("Clear Chat"):
         st.session_state.chat_history = []
-
 with col2:
     if st.session_state.chat_history:
         json_str = json.dumps(st.session_state.chat_history, indent=2)
         st.download_button("Download Chat", json_str, "chat_history.json", "application/json")
 
-# Display Chat History
+# Display chat history
 st.subheader("Conversation History")
 for turn in st.session_state.chat_history[::-1]:
     st.markdown(f"**You:** {turn['user']}")
