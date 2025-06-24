@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from typing import TypedDict, List
 from serpapi import GoogleSearch
 from langgraph.graph import StateGraph, END
-from langchain_community.llms import HuggingFaceEndpoint
+from langchain_community.llms import HuggingFaceHub
 
 # Load environment variables
 load_dotenv()
@@ -20,10 +20,10 @@ class GraphState(TypedDict):
     valid: bool
 
 # Initialize Hugging Face LLM
-llm = HuggingFaceEndpoint(
-    repo_id="mistralai/Mistral-7B-Instruct-v0.2",  # Change to your model if needed
+llm = HuggingFaceHub(
+    repo_id="mistralai/Mistral-7B-Instruct-v0.2",
     huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
-    temperature=0.7
+    model_kwargs={"temperature": 0.7, "max_new_tokens": 200}
 )
 
 # Node: Classify the intent
