@@ -21,7 +21,7 @@ class GraphState(TypedDict):
 
 # Initialize Hugging Face LLM
 llm = HuggingFaceHub(
-    repo_id="mistralai/Mistral-7B-Instruct-v0.2",
+    repo_id="google/flan-t5-large",  # OR "tiiuae/falcon-7b-instruct"
     huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
     model_kwargs={"temperature": 0.7, "max_new_tokens": 200}
 )
