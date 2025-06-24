@@ -1,0 +1,7 @@
+streamlit
+langgraph
+langchain-community
+langchain
+huggingface_hub
+python-dotenv
+google-search-results
